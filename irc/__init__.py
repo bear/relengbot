@@ -190,13 +190,12 @@ class rbot(SingleServerIRCBot):
         self.ircobj.disconnect_all()
 
     def process(self):
-        self.ircobj.process_once(0.5)
+        self.ircobj.process_once()
 
     def tell(self, target, message):
         self.connection.privmsg(target, message)
 
     def do_join(self, event, cmd, data):
-        # print 'join: ' + data[1] + ' '  + data[2]
         SingleServerIRCBot._on_join(self, self.connection, event)
         self.connection.join(data[1], data[2])
 

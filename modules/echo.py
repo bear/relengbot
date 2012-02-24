@@ -11,5 +11,5 @@
 
 
 def echo(msg, sender, channel, private, irc):
-    irc.tell(channel, 'echo [%s]' % msg)
+    irc.put(('irc', channel, 'echo [%s]' % msg))
 echo.commands = ['echo', "foo"]

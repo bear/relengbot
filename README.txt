@@ -1,4 +1,5 @@
 RelEng Bot
+----------
 
 Python based IRC bot (yes, I know) that gives an IRC interface to
 various Mozilla Release Engineering systems.
@@ -7,6 +8,7 @@ Super simple Module system that is designed to be easy to write
 modules for, not to be efficient or super-snazzy fancy.
 
 Module Framework
+----------------
 
 Modules are standalone python files that receive messages from
 the main IRC loop.  Once called, the command function should do
@@ -24,8 +26,6 @@ buildduty
   allow buildduty to change via bot
   (optional) set buildduty schedule via bot
 
-reboot slave
-
 enable/disable slave
   reach into slavealloc and mark a slave as enabled/disabled
   (?) require a reason why and record it in slavealloc
@@ -37,10 +37,6 @@ status
       last 5 jobs run and their status
       what master it's on
 
-health
-  query slave via ping, ssh and other methods to ensure that it is
-  up and running
-
 time
   return current time, or if TZ given, time in that timezone
 
@@ -50,9 +46,26 @@ nagios
 
 scan puppet and master log items in redis for errors and alert them
 
+reboot slave (may not be possible because of security)
+
+health (may not be possible because of security)
+  query slave via ping, ssh and other methods to ensure that it is
+  up and running
 
 TODO
-  add get/set key store for modules
-  add hooks to redis so filters can be triggered against external events
+----
+
+add get/set key store for modules
+add hooks to redis so filters can be triggered against external events
     (logs, time, ???)
 
+
+Dependencies
+------------
+
+  irclib by Joel Rosdahl
+    It's included with this source and is also available from GitHub
+    https://github.com/python-irclib/python-irclib
+
+  Bugzilla API Python Library
+    https://github.com/LegNeato/bztools

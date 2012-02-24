@@ -30,7 +30,6 @@ def runCommand(cmd, env=None):
     return p, o
 
 
-
 def ping(msg, sender, channel, private, irc):
     args = msg.split(' ')
     if len(args) > 0:
@@ -51,5 +50,5 @@ def ping(msg, sender, channel, private, irc):
                     reply.append('%s: %s' % (host, s))
                     break
         if len(reply) > 0:
-            irc.tell(channel, '\n'.join(reply))
+            irc.put(('irc', channel, '\n'.join(reply)))
 ping.commands = ['ping']

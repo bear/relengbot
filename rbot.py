@@ -25,18 +25,85 @@ import sys, os
 import imp
 import logging
 
-from multiprocessing import Process, get_logger, log_to_stderr
+from multiprocessing import Process, Queue, get_logger, log_to_stderr
+from Queue import Empty
 
 from irc import initOptions, initLogs, rbot
 
 
-log      = get_logger()
-commands = {}
-filters  = []
+log         = get_logger()
+ircQueue    = Queue()
+ircModules  = {}
+ircCommands = {}
+ircFilters  = []
+
+
+def loadModules(options):
+    filenames = []
+
+    for filename in os.listdir(options.modules):
+        if filename.endswith('.py') and not filename.startswith('_'):
+            filenames.append(os.path.join(options.modules, filename))
+
+    for filename in filenames:
+        fname = os.path.basename(filename)[:-3]
+
+        q = Queue()
+        p = Process(target=handleModule, name=fname, args=(fname, filename, q, ircQueue, options))
+        ircModules[fname] = { 'process': p,
+                              'queue':   q,
+                            }
+        p.start()
+
+
+def handleModule(moduleName, filename, qMsg, qIRC, options):
+    log.info('initializing modue %s [%s]' % (moduleName, filename))
+
+    try:
+        commands = {}
+        filters  = []
+        module   = imp.load_source(moduleName, filename)
+
+        if hasattr(module, 'setup'):
+            log.info('calling setup for %s' % moduleName)
+            module.setup(self)
+
+        for item, obj in vars(module).iteritems():
+            if hasattr(obj, 'commands'):
+                for cmd in obj.commands:
+                    log.info('registering command %s' % cmd)
+                    qIRC.put(('command', moduleName, cmd))
+                    commands[cmd] = obj
+            if hasattr(obj, 'filters'):
+                for cmd in obj.filters:
+                    log.info('registering filter %s' % cmd)
+                    qIRC.put(('filter', moduleName))
+                    filters.append(obj)
+
+    except:
+        module = None
+        log.error('Unable to load module %s' % moduleName, exc_info=True)
+        qIRC.put(('module', 'remove', moduleName))
+
+    if module is not None:
+        while True:
+            try:
+                item = qMsg.get(False)
+            except Empty:
+                item = None
+
+            if item is not None:
+                cmd, msg, sender, channel, private = item
+                log.info('processing %s' % cmd)
+                if cmd == 'filter':
+                    for func in filters:
+                        func(msg, sender, channel, private, qIRC)
+                else:
+                    commands[cmd](msg, sender, channel, private, qIRC)
 
 
 def processMessage(msg, sender, channel, private, irc):
-    print u'%s:%s %s' % (channel, sender, msg)
+    log.info(u'%s:%s %s' % (channel, sender, msg))
 
     args = msg.split(' ', 1)
     cmd  = None
@@ -49,41 +116,15 @@ def processMessage(msg, sender, channel, private, irc):
             body = ' '.join(args[2:])
 
     if cmd is not None:
-        if cmd in commands:
-            commands[cmd](' '.join(args[1:]), sender, channel, private, irc)
+        if cmd in ircCommands:
+            mod = ircCommands[cmd]
+            log.info('send msg to module %s for command %s' % (mod, cmd))
+            ircModules[mod]['queue'].put((cmd, ' '.join(args[1:]), sender, channel, private))
     else:
-        for cmd, func in filters:
-            func(msg, sender, channel, private, irc)
+        for mod in ircFilters:
+            log.info('send msg to module %s for filter' % mod)
+            ircModules[mod]['queue'].put(('filter', msg, sender, channel, private))
 
-
-def processIRC(options):
-    filenames = []
-
-    ircBot = rbot(options, cb=processMessage)
-    ircBot.start()
-
-    for filename in os.listdir(options.modules):
-        if filename.endswith('.py') and not filename.startswith('_'):
-            filenames.append(os.path.join(options.modules, filename))
-
-    for filename in filenames:
-       fname = os.path.basename(filename)[:-3]
-       try: module = imp.load_source(fname, filename)
-       except:
-          log.error('Unable to load module %s' % fname, exc_info=True)
-       else:
-          if hasattr(module, 'setup'):
-             module.setup(self)
-          for item, obj in vars(module).iteritems():
-              if hasattr(obj, 'commands'):
-                  for cmd in obj.commands:
-                      commands[cmd] = obj
-              if hasattr(obj, 'filters'):
-                  for cmd in obj.filters:
-                      filters.append((cmd, obj))
-
-    while ircBot.active:
-        ircBot.process()
 
 
 _defaultOptions = { 'config':      ('-c', '--config',     './rbot.cfg', 'Configuration file'),
@@ -99,5 +140,26 @@ if __name__ == "__main__":
 
     log.info('Starting')
 
-    Process(target=processIRC, args=(options,)).start()
+    loadModules(options)
+
+    ircBot = rbot(options, cb=processMessage)
+    ircBot.start()
+
+    while ircBot.active:
+        ircBot.process()
+
+        try:
+            msg = ircQueue.get(False)
+        except Empty:
+            msg = None
+
+        if msg is not None:
+            if msg[0] == 'irc':
+                ircBot.tell(msg[1], msg[2])
+            elif msg[0] == 'command':
+                log.info('registering %s %s' % (msg[0], msg[2]))
+                ircCommands[msg[2]] = msg[1]
+            elif msg[0] == 'filter':
+                log.info('registering %s %s' % (msg[0], msg[1]))
+                ircFilters.append(msg[1])
 
