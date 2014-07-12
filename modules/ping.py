@@ -51,4 +51,5 @@ def ping(msg, sender, channel, private, irc):
                     break
         if len(reply) > 0:
             irc.put(('irc', channel, '\n'.join(reply)))
+
 ping.commands = ['ping']

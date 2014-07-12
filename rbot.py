@@ -21,9 +21,8 @@
         bear    Mike Taylor <bear@mozilla.com>
 """
 
-import sys, os
+import os
 import imp
-import logging
 
 from multiprocessing import Process, Queue, get_logger, log_to_stderr
 from Queue import Empty
