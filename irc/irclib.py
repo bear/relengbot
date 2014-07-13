@@ -88,6 +88,7 @@ DEBUG = 0
 # ERROR from the server triggers the error event and the disconnect event.
 # dropping of the connection triggers the disconnect event.
 
+
 class IRCError(Exception):
     """Represents an IRC exception."""
     pass
